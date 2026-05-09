@@ -5,6 +5,7 @@ const test = require("node:test");
 const vm = require("node:vm");
 
 const rootDir = path.resolve(__dirname, "../..");
+const configScript = fs.readFileSync(path.join(rootDir, "extension/config.js"), "utf8");
 const contentScript = fs.readFileSync(path.join(rootDir, "extension/content.js"), "utf8");
 
 class FakeStyle {
@@ -51,15 +52,12 @@ class FakeElement {
   }
 
   querySelectorAll(selector) {
-    assert.equal(selector, 'div[class*="monetization"]');
+    assert.equal(selector, "div[class]");
     const matches = [];
 
     function visit(node) {
       for (const child of node.children) {
-        if (
-          child.tagName.toLowerCase() === "div" &&
-          String(child.className).includes("monetization")
-        ) {
+        if (child.tagName.toLowerCase() === "div" && String(child.className)) {
           matches.push(child);
         }
         visit(child);
@@ -92,6 +90,9 @@ function createApi(document = createDocument(), extraContext = {}) {
     ...extraContext
   };
   context.globalThis = context;
+  if (extraContext.loadDefaultConfig) {
+    vm.runInNewContext(configScript, context, { filename: "config.js" });
+  }
   vm.runInNewContext(contentScript, context, { filename: "content.js" });
   return {
     api: context.module.exports,
@@ -100,7 +101,18 @@ function createApi(document = createDocument(), extraContext = {}) {
   };
 }
 
-test("removes a single matching monetization div", () => {
+function assertArrayEqual(actual, expected) {
+  assert.deepEqual(Array.from(actual), expected);
+}
+
+test("loads default packaged config before content script when requested", () => {
+  const { api, context } = createApi(createDocument(), { loadDefaultConfig: true });
+
+  assertArrayEqual(context.EdgeMonetizationRemoverConfig.classKeywords, ["monetization"]);
+  assertArrayEqual(api.resolveClassKeywords(), ["monetization"]);
+});
+
+test("removes a single matching monetization div with default config", () => {
   const document = createDocument();
   const overlay = document.body.appendChild(new FakeElement("div", "fc-monetization-dialog-container"));
   document.body.appendChild(new FakeElement("div", "plain-card"));
@@ -113,7 +125,7 @@ test("removes a single matching monetization div", () => {
   assert.equal(document.body.children.length, 1);
 });
 
-test("removes multiple and nested matching monetization divs", () => {
+test("removes multiple and nested matching monetization divs with default config", () => {
   const document = createDocument();
   const wrapper = document.body.appendChild(new FakeElement("section"));
   const nested = wrapper.appendChild(new FakeElement("div", "promo monetization-wall"));
@@ -123,6 +135,7 @@ test("removes multiple and nested matching monetization divs", () => {
   const result = api.cleanup(document.documentElement, "test");
 
   assert.equal(result.removedCount, 2);
+  assertArrayEqual(result.keywordsUsed, ["monetization"]);
   assert.equal(nested.parentNode, null);
   assert.equal(topLevel.parentNode, null);
   assert.equal(wrapper.parentNode, document.body);
@@ -139,6 +152,53 @@ test("preserves non-div matching elements and no-match pages", () => {
   assert.equal(result.removedCount, 0);
   assert.equal(label.parentNode, document.body);
   assert.equal(card.parentNode, document.body);
+});
+
+test("removes divs matching multiple configured keywords", () => {
+  const document = createDocument();
+  const paywall = document.body.appendChild(new FakeElement("div", "site-paywall-modal"));
+  const subscription = document.body.appendChild(new FakeElement("div", "subscription curtain"));
+  const monetization = document.body.appendChild(new FakeElement("div", "fc-monetization-dialog-container"));
+  const article = document.body.appendChild(new FakeElement("div", "article-body"));
+  const { api } = createApi(document, {
+    EdgeMonetizationRemoverConfig: {
+      classKeywords: ["paywall", "subscription", "monetization"]
+    }
+  });
+
+  const result = api.cleanup(document.documentElement, "test");
+
+  assert.equal(result.removedCount, 3);
+  assertArrayEqual(result.keywordsUsed, ["paywall", "subscription", "monetization"]);
+  assert.equal(paywall.parentNode, null);
+  assert.equal(subscription.parentNode, null);
+  assert.equal(monetization.parentNode, null);
+  assert.equal(article.parentNode, document.body);
+});
+
+test("normalizes configured keywords by trimming empty entries and duplicates", () => {
+  const { api } = createApi();
+
+  assertArrayEqual(api.normalizeKeywords([" paywall ", "", "subscription", "paywall", "  "]), [
+    "paywall",
+    "subscription"
+  ]);
+});
+
+test("falls back to monetization for missing empty or invalid config", () => {
+  assertArrayEqual(createApi().api.resolveClassKeywords(), ["monetization"]);
+  assertArrayEqual(
+    createApi(createDocument(), { EdgeMonetizationRemoverConfig: { classKeywords: [] } }).api.resolveClassKeywords(),
+    ["monetization"]
+  );
+  assertArrayEqual(
+    createApi(createDocument(), { EdgeMonetizationRemoverConfig: { classKeywords: "paywall" } }).api.resolveClassKeywords(),
+    ["monetization"]
+  );
+  assertArrayEqual(
+    createApi(createDocument(), { EdgeMonetizationRemoverConfig: { classKeywords: [null, " "] } }).api.resolveClassKeywords(),
+    ["monetization"]
+  );
 });
 
 test("restores hidden body overflow to auto", () => {
@@ -214,6 +274,24 @@ test("sets up at most one mutation observer", () => {
 
   assert.equal(first, second);
   assert.equal(observed, 1);
+});
+
+test("removes delayed matching nodes through configured keyword mutation handling", () => {
+  const document = createDocument();
+  const added = new FakeElement("div", "site-paywall-modal");
+  added.ownerDocument = document;
+  document.body.appendChild(added);
+  const { api } = createApi(document, {
+    EdgeMonetizationRemoverConfig: {
+      classKeywords: ["paywall"]
+    }
+  });
+
+  const result = api.handleMutations([{ addedNodes: [added] }]);
+
+  assert.equal(result.removedCount, 1);
+  assertArrayEqual(result.keywordsUsed, ["paywall"]);
+  assert.equal(added.parentNode, null);
 });
 
 test("completes cleanup work inside the 1 second budget", () => {

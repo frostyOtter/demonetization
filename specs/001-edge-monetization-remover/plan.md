@@ -1,33 +1,35 @@
 # Implementation Plan: Edge Monetization Remover
 
-**Branch**: `001-edge-monetization-remover` | **Date**: 2026-05-09 | **Spec**: [spec.md](./spec.md)
+**Branch**: `main` | **Date**: 2026-05-09 | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/001-edge-monetization-remover/spec.md`
+
+**Note**: This plan was filled in by the `/speckit-plan` workflow.
 
 ## Summary
 
-Build a minimal Microsoft Edge Manifest V3 extension that runs a static content script on web pages, removes `div` elements whose class contains `monetization`, restores body overflow from hidden to auto, and observes later DOM additions so delayed monetization containers are also removed. The design avoids runtime dependencies, user settings, background workers, storage, and remote code for the initial release.
+Extend the Microsoft Edge Manifest V3 extension so the DOM cleanup keyword list is defined in a packaged config file instead of being hard-coded to only `monetization`. The default config preserves the existing `monetization` behavior, while maintainers can add values such as `paywall` or `subscription`; the content script normalizes configured keywords, removes only `div` elements whose class contains any configured value, restores body overflow from hidden to auto, and continues observing delayed DOM insertions.
 
 ## Technical Context
 
-**Language/Version**: JavaScript targeting Microsoft Edge Chromium extension runtime with Manifest V3  
-**Primary Dependencies**: No runtime dependencies; test tooling may use a DOM-capable JavaScript test runner  
-**Storage**: N/A; no persisted settings or user data in v1  
-**Testing**: Unit tests for cleanup logic in a DOM-like environment, plus manual or automated browser journey validation with an unpacked Edge extension  
-**Target Platform**: Microsoft Edge desktop, Chromium extension platform  
-**Project Type**: Browser extension  
-**Performance Goals**: Remove matching divs and restore scroll within 1 second of page load or delayed insertion  
-**Constraints**: No user setup for v1; no visible page UI; no remote code; no network access; only body overflow may be changed  
-**Scale/Scope**: Applies broadly to web pages where extension host access is allowed by the browser and user settings
+**Language/Version**: JavaScript targeting Chromium Manifest V3 content scripts; Node.js >=20 for tests  
+**Primary Dependencies**: Browser DOM APIs, MutationObserver, Microsoft Edge/Chromium extension runtime; no runtime npm dependencies  
+**Storage**: Packaged extension config file, planned as `extension/config.js`; no user data persistence  
+**Testing**: Node built-in test runner via `npm test`, with static manifest/content-script integration checks  
+**Target Platform**: Microsoft Edge on Chromium-compatible `http://*/*` and `https://*/*` pages  
+**Project Type**: Browser extension content-script project  
+**Performance Goals**: Remove 100% of matching configured-keyword divs within 1 second of page load or delayed insertion on validation fixtures  
+**Constraints**: No visible page controls, no per-page user interaction, no remote code, no network requests, no new extension permissions for the config file, only body `overflow` may be changed  
+**Scale/Scope**: Single extension package with one config file, one content script, unit tests, integration tests, and manual Edge validation fixtures
 
 ## Constitution Check
 
-*GATE: Passed before Phase 0 research and re-checked after Phase 1 design.*
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- **Code Quality**: Use a small content-script module with named cleanup functions, clear selectors, defensive DOM checks, and no new runtime dependency. Any test-only dependency must be justified by deterministic coverage.
-- **Testing Standards**: Cover selector matching, multiple removals, no-op pages, non-div preservation, body overflow restoration, non-hidden overflow preservation, and delayed insertion. Browser journey validation must prove unpacked extension behavior in Edge.
-- **UX Consistency**: The extension is intentionally invisible: no prompts, success messages, settings screen, toolbar workflow, loading state, empty state, or error state for v1. The user-visible outcome is restored page reading and scrolling.
-- **Performance Budgets**: Initial cleanup and delayed cleanup must complete within 1 second. Mutation handling must inspect added nodes and descendants instead of polling the whole document on a timer.
-- **Simplicity Review**: A manifest plus content script is the simplest design that satisfies the spec. Background workers, options pages, storage, analytics, and framework build steps are excluded from v1.
+- **Code Quality**: Pass. Keep the implementation dependency-free and local to `extension/config.js`, `extension/content.js`, and tests. Add small helper functions for keyword normalization and matching instead of duplicating selector logic. Avoid new abstractions beyond the config boundary.
+- **Testing Standards**: Pass. Add unit coverage for multiple configured keywords, whitespace/duplicate normalization, fallback behavior, non-div preservation, delayed mutation cleanup, and scroll restoration. Add integration coverage that the manifest loads `config.js` before `content.js` and that no network or remote-code behavior is introduced.
+- **UX Consistency**: Pass. The extension remains unobtrusive and adds no page UI, prompts, onboarding, success states, or options page for this change. The config is maintainer-edited in the packaged extension.
+- **Performance Budgets**: Pass. Initial cleanup and mutation cleanup must remain under 1 second in deterministic fixtures. Matching should inspect added DOM subtrees and avoid polling or repeated whole-document scans for mutations.
+- **Simplicity Review**: Pass. A packaged JavaScript config file loaded before the content script is the simplest config mechanism that avoids async fetching, storage permissions, an options page, or a background worker.
 
 ## Project Structure
 
@@ -41,6 +43,8 @@ specs/001-edge-monetization-remover/
 ├── quickstart.md
 ├── contracts/
 │   └── content-script-behavior.md
+├── checklists/
+│   └── requirements.md
 └── tasks.md
 ```
 
@@ -48,22 +52,28 @@ specs/001-edge-monetization-remover/
 
 ```text
 extension/
-├── manifest.json
-└── content.js
+├── manifest.json       # MV3 manifest, loads config before content script
+├── config.js           # Packaged class-keyword config
+└── content.js          # DOM cleanup and mutation observer logic
 
 tests/
 ├── fixtures/
+│   ├── delayed-monetization-page.html
 │   ├── monetization-page.html
 │   ├── no-match-page.html
-│   └── delayed-monetization-page.html
+│   └── scroll-locked-page.html
 ├── integration/
 │   └── edge-extension.test.js
+├── manual-validation.md
 └── unit/
     └── content.test.js
 ```
 
-**Structure Decision**: Use one small browser-extension package in `extension/` and colocate validation assets under `tests/`. The repository currently has no application code, so this layout keeps implementation direct and avoids introducing an unnecessary app framework.
+**Structure Decision**: Keep the existing single-extension structure. Add `extension/config.js` next to the manifest and content script so maintainers have one obvious packaged file to edit and tests can load it without browser storage or network mocking.
 
 ## Complexity Tracking
 
-No constitution violations or added complexity are accepted for this plan.
+No constitution violations or justified complexity exceptions.
+
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|

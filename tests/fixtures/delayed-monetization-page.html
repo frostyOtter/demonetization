@@ -12,7 +12,10 @@
       setTimeout(function insertDelayedMonetizationDialog() {
         document.body.style.overflow = "hidden";
         var wrapper = document.createElement("section");
-        wrapper.innerHTML = '<div class="fc-monetization-dialog-container">Delayed monetization dialog</div>';
+        wrapper.innerHTML = [
+          '<div class="fc-monetization-dialog-container">Delayed monetization dialog</div>',
+          '<div class="site-paywall-modal">Delayed configured keyword dialog</div>'
+        ].join("");
         document.body.appendChild(wrapper);
       }, 100);
     </script>
