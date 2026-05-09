@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Edge Monetization Remover",
+  "version": "0.1.0",
+  "description": "Removes monetization overlay divs and restores body scrolling on supported pages.",
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

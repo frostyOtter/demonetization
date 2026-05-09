@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Delayed Monetization Fixture</title>
+  </head>
+  <body>
+    <main id="article">
+      <p>Delayed insertion fixture.</p>
+    </main>
+    <script>
+      setTimeout(function insertDelayedMonetizationDialog() {
+        document.body.style.overflow = "hidden";
+        var wrapper = document.createElement("section");
+        wrapper.innerHTML = '<div class="fc-monetization-dialog-container">Delayed monetization dialog</div>';
+        document.body.appendChild(wrapper);
+      }, 100);
+    </script>
+  </body>
+</html>
