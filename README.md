@@ -4,11 +4,37 @@ Microsoft Edge Manifest V3 extension that removes monetization overlay `div` ele
 
 ## Behavior
 
-- Removes `div` elements whose class name contains `monetization`, including `fc-monetization-dialog-container`.
+- Loads packaged cleanup keywords from `extension/config.js`, defaulting to `monetization`.
+- Removes `div` elements whose class name contains any configured keyword, including `fc-monetization-dialog-container`.
 - Leaves non-div elements and non-matching page content intact.
 - Changes `document.body.style.overflow` from `hidden` to `auto`.
 - Observes newly added DOM nodes so delayed monetization dialogs are removed without a page reload.
 - Uses no runtime dependencies, background worker, storage, network requests, or remote code.
+
+## Configure Keywords
+
+Edit `extension/config.js` before loading or reloading the unpacked extension:
+
+```js
+globalScope.EdgeMonetizationRemoverConfig = {
+  classKeywords: ["monetization", "paywall", "subscription"]
+};
+```
+
+Whitespace and duplicate entries are normalized at runtime. Empty, missing, or invalid keyword config falls back to `monetization`.
+
+## Apply Guide
+
+Use the extension as an unpacked Microsoft Edge extension:
+
+1. Open Microsoft Edge and go to `edge://extensions`.
+2. Enable **Developer mode**.
+3. Select **Load unpacked**.
+4. Choose the repository `extension/` directory.
+5. Visit a page that shows a monetization, paywall, or subscription overlay.
+6. Confirm the matching configured-keyword `div` is removed and page scrolling works normally.
+
+After editing files in `extension/`, return to `edge://extensions` and select **Reload** for Edge Monetization Remover before testing the change on a page.
 
 ## Local Validation
 
@@ -25,12 +51,13 @@ Load the extension manually in Microsoft Edge:
 2. Enable developer mode.
 3. Select **Load unpacked**.
 4. Choose the repository `extension/` directory.
-5. Open the fixture pages in `tests/fixtures/` and confirm overlays are removed, scrolling is restored, and non-matching content remains.
+5. Open the fixture pages in `tests/fixtures/` and confirm default and configured-keyword overlays are removed, scrolling is restored, and non-matching content remains.
 
 ## Project Layout
 
 ```text
 extension/
+├── config.js
 ├── manifest.json
 └── content.js
 

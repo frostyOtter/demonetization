@@ -29,14 +29,26 @@
 **Source**:
 - https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/migrate-your-extension-from-manifest-v2-to-v3
 
+## Decision: Use a packaged JavaScript config file loaded before the content script
+
+**Rationale**: The new requirement needs a maintainable file where class-name keywords can be edited without changing cleanup logic. A packaged `extension/config.js` loaded before `extension/content.js` can expose a simple global configuration object to the content script, preserves synchronous startup, requires no new permissions, and avoids using `fetch` or extension storage for a static maintainer-controlled list. The manifest ordering becomes the contract: config first, cleanup script second.
+
+**Alternatives considered**: A packaged JSON file fetched through `chrome.runtime.getURL()` was rejected because it adds async loading and would require changing the current no-network/static-script test posture. `chrome.storage` and an options page were rejected because the requested scope is a config file, not end-user settings. Keeping the keyword hard-coded was rejected because it fails the new configurable keyword requirement.
+
 ## Decision: Use targeted mutation handling for delayed overlays
 
 **Rationale**: The spec requires removing monetization divs that appear after page load. A MutationObserver that inspects added nodes and their descendants handles delayed insertion without repeated full-document polling.
 
 **Alternatives considered**: Timer-based rescans were rejected due to unnecessary repeated work. Initial-load-only cleanup was rejected because it fails User Story 3 and FR-008.
 
-## Decision: Match only `div` elements with class names containing `monetization`
+## Decision: Match only `div` elements with class names containing configured keywords
 
-**Rationale**: The spec explicitly defines the target as a div whose class name contains the substring `monetization`, including examples such as `fc-monetization-dialog-container`. Limiting removal to divs reduces false positives and preserves non-div elements.
+**Rationale**: The spec defines the default target as a div whose class name contains `monetization`, including examples such as `fc-monetization-dialog-container`, and now requires additional configured keyword values. Limiting removal to divs reduces false positives and preserves non-div elements while allowing the keyword list to expand.
 
-**Alternatives considered**: Removing any element with a matching class was rejected because the spec excludes arbitrary non-div removal. Matching only `div.monetization` was rejected because it would miss substring examples.
+**Alternatives considered**: Removing any element with a matching class was rejected because the spec excludes arbitrary non-div removal. Matching only `div.monetization` was rejected because it would miss substring examples and configured alternatives such as `site-paywall-modal`.
+
+## Decision: Normalize config keywords with a default fallback
+
+**Rationale**: Maintainer-edited config can contain duplicate values, whitespace, empty entries, or invalid structures. The content script should trim keywords, remove empty entries, de-duplicate values, and fall back to `monetization` when no valid keywords remain. This keeps the extension functional after config mistakes and preserves the original behavior.
+
+**Alternatives considered**: Failing closed with no removals was rejected because a minor config error would silently disable the extension. Throwing errors was rejected because content scripts should not disrupt pages. Case-insensitive matching was deferred because the existing behavior is case-sensitive and the user requested additional names, not a change in matching semantics.
