@@ -7,6 +7,8 @@
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
+**Implementation Status**: Automated implementation is complete. Future assistants should not reimplement checked tasks; review this file first, then validate only any unchecked task. As of this handoff, the remaining unchecked work is T045 manual Microsoft Edge validation, with current notes in `tests/manual-validation.md`.
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel because it changes different files and does not depend on incomplete tasks

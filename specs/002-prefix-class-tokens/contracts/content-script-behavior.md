@@ -1,13 +1,13 @@
 # Contract: Content Script Behavior
 
-This contract defines the externally observable behavior of the extension config file and content script. The extension exposes no HTTP API, command-line interface, storage schema, or user-facing settings in v1.
+This contract defines the externally observable behavior of the extension config file and content script. The extension exposes no HTTP API, command-line interface, storage schema, or user-facing settings for this feature.
 
 ## Configuration
 
 - The manifest loads `config.js` before `content.js`.
-- The config file defines a maintainer-editable list of class-name keywords.
-- The default keyword list includes `monetization`.
-- Configured keywords are trimmed, empty values are ignored, and duplicates are removed.
+- The config file defines a maintainer-editable list of class-name match entries.
+- The default entry list includes `monetization`.
+- Configured entries are trimmed, empty values are ignored, and duplicates are removed.
 - If the config is missing, empty, or invalid, the content script uses `monetization`.
 - The config is packaged with the extension; it is not fetched from a remote service and does not require browser storage permissions.
 - Plain config entries match by substring against the element class text.
@@ -22,11 +22,12 @@ This contract defines the externally observable behavior of the extension config
 
 ## Element Cleanup
 
-- Given a page contains one or more `div` elements whose class name contains any configured keyword, all matching divs are removed.
+- Given a page contains one or more `div` elements whose class name contains any plain configured entry, all matching divs are removed.
 - Given a page contains one or more `div` elements with a class token starting with a configured trailing-star prefix, all matching divs are removed.
 - Given a page contains a matching div inside a newly added DOM subtree, that matching div is removed after insertion.
-- Given a page contains a non-div element whose class name contains a configured keyword, that element is not removed.
+- Given a page contains a non-div element whose class name matches a plain or trailing-star entry, that element is not removed.
 - Given a page contains no matching div elements, visible page content is not removed.
+- Given a page contains a class token such as `paidads` and the only relevant configured entry is `ads*`, that div is not removed by the prefix-token rule.
 
 ## Body Scroll Restoration
 

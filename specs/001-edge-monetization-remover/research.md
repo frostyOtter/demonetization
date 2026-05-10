@@ -47,8 +47,14 @@
 
 **Alternatives considered**: Removing any element with a matching class was rejected because the spec excludes arbitrary non-div removal. Matching only `div.monetization` was rejected because it would miss substring examples and configured alternatives such as `site-paywall-modal`.
 
+## Decision: Interpret trailing-star config entries as class-token prefix matches
+
+**Rationale**: Maintainers need entries such as `ads*` to match class tokens that start with a prefix, while preserving existing substring behavior for plain entries. A trailing `*` is therefore interpreted only as a suffix marker on a configured entry: `ads*` matches tokens such as `adsbygoogle`, `ads-banner`, or `ads_rail`; `ads-*` matches tokens that start with `ads-`. Plain entries such as `monetization`, `paywall`, and `subscription` continue to match substrings anywhere in the full class text.
+
+**Alternatives considered**: Treating every keyword as a prefix was rejected because it would break existing substring matching. Supporting full glob or regular-expression syntax was rejected because the maintainer config only needs one explicit suffix convention and broader pattern languages would increase false-positive and escaping risk. Matching a trailing-star prefix against the full class string was rejected because the requested behavior is class-token prefix matching.
+
 ## Decision: Normalize config keywords with a default fallback
 
 **Rationale**: Maintainer-edited config can contain duplicate values, whitespace, empty entries, or invalid structures. The content script should trim keywords, remove empty entries, de-duplicate values, and fall back to `monetization` when no valid keywords remain. This keeps the extension functional after config mistakes and preserves the original behavior.
 
-**Alternatives considered**: Failing closed with no removals was rejected because a minor config error would silently disable the extension. Throwing errors was rejected because content scripts should not disrupt pages. Case-insensitive matching was deferred because the existing behavior is case-sensitive and the user requested additional names, not a change in matching semantics.
+**Alternatives considered**: Failing closed with no removals was rejected because a minor config error would silently disable the extension. Throwing errors was rejected because content scripts should not disrupt pages. Case-insensitive matching was deferred because the existing behavior is case-sensitive and the user requested additional names, not a change in matching semantics. Stripping the `*` during normalization was rejected because normalization/fallback behavior should stay the same and interpretation belongs to matching.

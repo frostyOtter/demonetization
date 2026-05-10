@@ -8,12 +8,14 @@
 4. Configure class-name keywords:
    - Keep `monetization` as the default value.
    - Add additional values such as `paywall` or `subscription` when equivalent overlay div classes should be removed.
+   - Use a trailing `*` for class-token prefix matching, such as `ads*` for `adsbygoogle` or `ads-banner`, and `ads-*` for tokens that start with `ads-`.
+   - Leave plain values without `*` when substring matching is desired.
    - Expect whitespace, empty entries, and duplicates to be normalized by the content script.
    - Use the packaged global object:
 
      ```js
      globalScope.EdgeMonetizationRemoverConfig = {
-       classKeywords: ["monetization", "paywall", "subscription"]
+       classKeywords: ["monetization", "paywall", "subscription", "ads*"]
      };
      ```
 5. Initial cleanup:
@@ -33,6 +35,8 @@
 5. Open fixture pages or test pages that cover:
    - A `div` with class `fc-monetization-dialog-container`.
    - A `div` with a configured alternate class keyword such as `site-paywall-modal`.
+   - A `div` with a class token that starts with a trailing-star prefix, such as `adsbygoogle` for `ads*`.
+   - A plain keyword that still matches by substring, proving old behavior remains intact.
    - Multiple matching monetization divs.
    - A page with `body` overflow hidden.
    - A page without matching divs.

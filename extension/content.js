@@ -19,7 +19,7 @@
       }
 
       var keyword = value[index].trim();
-      if (keyword && normalized.indexOf(keyword) === -1) {
+      if (keyword && keyword !== "*" && normalized.indexOf(keyword) === -1) {
         normalized.push(keyword);
       }
     }
@@ -52,9 +52,34 @@
     return "";
   }
 
+  function isPrefixTokenEntry(keyword) {
+    return keyword.length > 1 && keyword.charAt(keyword.length - 1) === "*";
+  }
+
+  function classTokenStartsWithPrefix(classText, prefix) {
+    var tokens = classText.split(/\s+/);
+
+    for (var index = 0; index < tokens.length; index += 1) {
+      if (tokens[index].indexOf(prefix) === 0) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   function classContainsKeyword(classText, keywords) {
     for (var index = 0; index < keywords.length; index += 1) {
-      if (classText.indexOf(keywords[index]) !== -1) {
+      var keyword = keywords[index];
+
+      if (isPrefixTokenEntry(keyword)) {
+        if (classTokenStartsWithPrefix(classText, keyword.slice(0, -1))) {
+          return true;
+        }
+        continue;
+      }
+
+      if (classText.indexOf(keyword) !== -1) {
         return true;
       }
     }

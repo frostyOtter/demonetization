@@ -1,23 +1,6 @@
-# Data Model: Edge Monetization Remover
+# Data Model: Prefix Class Tokens
 
 The feature does not persist user data. These entities describe runtime concepts used by the content script and tests.
-
-## PageCleanupTarget
-
-**Represents**: A removable page element that blocks content through a monetization, paywall, subscription, or equivalent overlay class configured for cleanup.
-
-**Fields**:
-- `element`: A DOM element present on the current page.
-- `tagName`: Must be `DIV`.
-- `className`: Contains at least one normalized configured keyword match.
-- `classTokens`: Whitespace-separated class tokens derived from `className`.
-- `matchedEntry`: The configured entry that matched the element class text or one of its class tokens.
-
-**Validation Rules**:
-- Only div elements qualify.
-- Plain configured entries match by substring and must include examples such as `fc-monetization-dialog-container` and configured alternatives such as `site-paywall-modal`.
-- Configured entries ending in `*` match when any individual class token starts with the entry prefix before the trailing `*`; for example, `ads*` matches `adsbygoogle` and `ads-banner`, and `ads-*` matches `ads-banner`.
-- Non-div elements with matching class names are not cleanup targets.
 
 ## CleanupConfig
 
@@ -25,16 +8,16 @@ The feature does not persist user data. These entities describe runtime concepts
 
 **Fields**:
 - `classKeywords`: Array of class-name match entries to remove when found on div elements.
-- `defaultKeyword`: `monetization`, used when no valid configured keywords are available.
-- `normalizedKeywords`: Runtime keyword list after validation.
+- `defaultKeyword`: `monetization`, used when no valid configured entries are available.
+- `normalizedKeywords`: Runtime entry list after validation.
 
 **Validation Rules**:
-- Trim leading and trailing whitespace from each configured keyword.
+- Trim leading and trailing whitespace from each configured entry.
 - Remove empty entries.
 - Remove duplicate entries while preserving first occurrence order.
-- If the config object is missing, malformed, empty, or has no valid keywords, use `["monetization"]`.
+- If the config object is missing, malformed, empty, or has no valid entries, use `["monetization"]`.
 - Preserve trailing `*` entries during normalization; the suffix changes matching semantics but does not change fallback rules.
-- Do not load keywords from remote URLs or browser storage for this feature.
+- Do not load entries from remote URLs or browser storage for this feature.
 
 ## CleanupConfigEntry
 
@@ -49,8 +32,39 @@ The feature does not persist user data. These entities describe runtime concepts
 **Validation Rules**:
 - Plain entries retain the existing substring semantics over full class text.
 - Trailing-star entries use prefix matching against individual class tokens only.
+- An entry that is exactly `*` has an empty prefix and is ignored as an invalid matching entry.
 - Matching remains case-sensitive to preserve existing behavior.
 - Entries are never interpreted as regular expressions or full glob patterns.
+
+## ClassToken
+
+**Represents**: One individual class name on a page element.
+
+**Fields**:
+- `value`: A class token from the element class list.
+- `sourceClassName`: The full element class text used by plain substring entries.
+
+**Validation Rules**:
+- Prefix-token entries match only when a token starts with the configured prefix.
+- Prefix-token entries do not match when the prefix appears only in the middle or end of a token.
+- Plain entries continue to match against the full class text, not only individual tokens.
+
+## PageCleanupTarget
+
+**Represents**: A removable page element that blocks content through a matching configured class.
+
+**Fields**:
+- `element`: A DOM element present on the current page.
+- `tagName`: Must be `DIV`.
+- `className`: Class text used for matching.
+- `classTokens`: Individual class tokens available for prefix matching.
+- `matchedEntry`: The configured entry that matched the element class text or one of its class tokens.
+
+**Validation Rules**:
+- Only div elements qualify.
+- Plain configured entries match by substring and must keep examples such as `fc-monetization-dialog-container` and `site-hardpaywall-modal` working.
+- Configured entries ending in `*` match when any individual class token starts with the entry prefix before the trailing `*`.
+- Non-div elements with matching class names are not cleanup targets.
 
 ## BodyScrollState
 
@@ -74,7 +88,7 @@ The feature does not persist user data. These entities describe runtime concepts
 - `removedCount`: Number of matching div elements removed.
 - `scrollRestored`: Whether body overflow was changed from hidden to auto.
 - `source`: One of initial page cleanup or delayed DOM insertion cleanup.
-- `keywordsUsed`: Normalized keyword list used by the cleanup pass when exposed for tests.
+- `entriesUsed`: Normalized config entries used by the cleanup pass when exposed for tests.
 
 **State Transitions**:
 - `pending` -> `cleaned`: Initial page scan completed.
