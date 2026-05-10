@@ -105,11 +105,32 @@ function assertArrayEqual(actual, expected) {
   assert.deepEqual(Array.from(actual), expected);
 }
 
+const prefixTokenExamples = {
+  prefix: "ads*",
+  dashedPrefix: "ads-*",
+  matchingDashToken: "ads-banner",
+  matchingUnderscoreToken: "layout ads_modal",
+  nonMatchingMiddleToken: "paidads",
+  ignoredWildcard: "*"
+};
+
 test("loads default packaged config before content script when requested", () => {
   const { api, context } = createApi(createDocument(), { loadDefaultConfig: true });
 
-  assertArrayEqual(context.EdgeMonetizationRemoverConfig.classKeywords, ["monetization"]);
-  assertArrayEqual(api.resolveClassKeywords(), ["monetization"]);
+  assertArrayEqual(context.EdgeMonetizationRemoverConfig.classKeywords, [
+    "monetization",
+    "paywall",
+    "subscription",
+    "ads*",
+    "ads-*"
+  ]);
+  assertArrayEqual(api.resolveClassKeywords(), [
+    "monetization",
+    "paywall",
+    "subscription",
+    "ads*",
+    "ads-*"
+  ]);
 });
 
 test("removes a single matching monetization div with default config", () => {
@@ -179,9 +200,10 @@ test("removes divs matching multiple configured keywords", () => {
 test("normalizes configured keywords by trimming empty entries and duplicates", () => {
   const { api } = createApi();
 
-  assertArrayEqual(api.normalizeKeywords([" paywall ", "", "subscription", "paywall", "  "]), [
+  assertArrayEqual(api.normalizeKeywords([" paywall ", "", "subscription", "paywall", " ads* ", "ads*", "  "]), [
     "paywall",
-    "subscription"
+    "subscription",
+    "ads*"
   ]);
 });
 
@@ -199,6 +221,115 @@ test("falls back to monetization for missing empty or invalid config", () => {
     createApi(createDocument(), { EdgeMonetizationRemoverConfig: { classKeywords: [null, " "] } }).api.resolveClassKeywords(),
     ["monetization"]
   );
+  assertArrayEqual(
+    createApi(createDocument(), { EdgeMonetizationRemoverConfig: { classKeywords: [prefixTokenExamples.ignoredWildcard] } }).api.resolveClassKeywords(),
+    ["monetization"]
+  );
+});
+
+test("matches trailing-star entries against class token prefixes", () => {
+  const document = createDocument();
+  const dashToken = document.body.appendChild(new FakeElement("div", prefixTokenExamples.matchingDashToken));
+  const underscoreToken = document.body.appendChild(new FakeElement("div", prefixTokenExamples.matchingUnderscoreToken));
+  const middleToken = document.body.appendChild(new FakeElement("div", prefixTokenExamples.nonMatchingMiddleToken));
+  const { api } = createApi(document, {
+    EdgeMonetizationRemoverConfig: {
+      classKeywords: [prefixTokenExamples.prefix]
+    }
+  });
+
+  const result = api.cleanup(document.documentElement, "test");
+
+  assert.equal(result.removedCount, 2);
+  assert.equal(dashToken.parentNode, null);
+  assert.equal(underscoreToken.parentNode, null);
+  assert.equal(middleToken.parentNode, document.body);
+});
+
+test("keeps ads-* scoped to dashed class token prefixes", () => {
+  const document = createDocument();
+  const dashToken = document.body.appendChild(new FakeElement("div", prefixTokenExamples.matchingDashToken));
+  const underscoreToken = document.body.appendChild(new FakeElement("div", "ads_modal"));
+  const { api } = createApi(document, {
+    EdgeMonetizationRemoverConfig: {
+      classKeywords: [prefixTokenExamples.dashedPrefix]
+    }
+  });
+
+  const result = api.cleanup(document.documentElement, "test");
+
+  assert.equal(result.removedCount, 1);
+  assert.equal(dashToken.parentNode, null);
+  assert.equal(underscoreToken.parentNode, document.body);
+});
+
+test("mixes prefix-token and plain substring matching", () => {
+  const document = createDocument();
+  const prefixMatch = document.body.appendChild(new FakeElement("div", prefixTokenExamples.matchingDashToken));
+  const plainMatch = document.body.appendChild(new FakeElement("div", "site-hardpaywall-modal"));
+  const article = document.body.appendChild(new FakeElement("div", "article-body"));
+  const { api } = createApi(document, {
+    EdgeMonetizationRemoverConfig: {
+      classKeywords: [prefixTokenExamples.prefix, "paywall"]
+    }
+  });
+
+  const result = api.cleanup(document.documentElement, "test");
+
+  assert.equal(result.removedCount, 2);
+  assert.equal(prefixMatch.parentNode, null);
+  assert.equal(plainMatch.parentNode, null);
+  assert.equal(article.parentNode, document.body);
+});
+
+test("preserves non-div elements with prefix-token matching classes", () => {
+  const document = createDocument();
+  const label = document.body.appendChild(new FakeElement("span", prefixTokenExamples.matchingDashToken));
+  const { api } = createApi(document, {
+    EdgeMonetizationRemoverConfig: {
+      classKeywords: [prefixTokenExamples.prefix]
+    }
+  });
+
+  const result = api.cleanup(document.documentElement, "test");
+
+  assert.equal(result.removedCount, 0);
+  assert.equal(label.parentNode, document.body);
+});
+
+test("removes delayed prefix-token matches through mutation handling", () => {
+  const document = createDocument();
+  const added = new FakeElement("div", prefixTokenExamples.matchingUnderscoreToken);
+  added.ownerDocument = document;
+  document.body.appendChild(added);
+  const { api } = createApi(document, {
+    EdgeMonetizationRemoverConfig: {
+      classKeywords: [prefixTokenExamples.prefix]
+    }
+  });
+
+  const result = api.handleMutations([{ addedNodes: [added] }]);
+
+  assert.equal(result.removedCount, 1);
+  assert.equal(added.parentNode, null);
+});
+
+test("restores body overflow while cleaning prefix-token matches", () => {
+  const document = createDocument();
+  document.body.style.overflow = "hidden";
+  const overlay = document.body.appendChild(new FakeElement("div", prefixTokenExamples.matchingDashToken));
+  const { api } = createApi(document, {
+    EdgeMonetizationRemoverConfig: {
+      classKeywords: [prefixTokenExamples.prefix]
+    }
+  });
+
+  const result = api.cleanup(document.documentElement, "test");
+
+  assert.equal(result.removedCount, 1);
+  assert.equal(result.scrollRestored, true);
+  assert.equal(overlay.parentNode, null);
+  assert.equal(document.body.style.overflow, "auto");
 });
 
 test("restores hidden body overflow to auto", () => {

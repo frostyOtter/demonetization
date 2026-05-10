@@ -1,7 +1,7 @@
-# Implementation Plan: Edge Monetization Remover
+# Implementation Plan: Prefix Class Tokens
 
-**Branch**: `main` | **Date**: 2026-05-10 | **Spec**: `specs/001-edge-monetization-remover/spec.md`
-**Input**: Feature specification from `/specs/001-edge-monetization-remover/spec.md` plus follow-up request: "Add support for maintainer config entries like ads* in extension/config.js, where a trailing * means class token starts with this prefix. Keep all existing behavior intact: plain keywords remain substring matches, config normalization/fallback stays the same, and cleanup still only removes matching div elements."
+**Branch**: `002-prefix-class-tokens` | **Date**: 2026-05-10 | **Spec**: `specs/002-prefix-class-tokens/spec.md`
+**Input**: Feature specification from `/specs/002-prefix-class-tokens/spec.md`
 
 ## Summary
 
@@ -24,7 +24,7 @@ Extend the packaged maintainer keyword configuration so entries ending in `*` ac
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 - **Code Quality**: Pass. Implement prefix matching in the existing matching helpers without adding dependencies or broad abstractions. Preserve the existing public test API names and config resolution flow.
-- **Testing Standards**: Pass. Add regression coverage for trailing-star entries, plain substring entries, normalization/fallback behavior, div-only cleanup, delayed DOM cleanup, and integration/config examples.
+- **Testing Standards**: Pass. Add regression coverage for trailing-star entries, plain substring entries, normalization/fallback behavior, div-only cleanup, delayed DOM cleanup, body overflow restoration, and integration/config examples.
 - **UX Consistency**: Pass. No visible UI is introduced. The extension continues to operate unobtrusively and preserves page content except matching cleanup divs and body overflow restoration.
 - **Performance Budgets**: Pass. Matching must remain bounded to inspected divs and added mutation subtrees, with fixture validation proving removal within the existing 1 second budget.
 - **Simplicity Review**: Pass. Treat trailing `*` as a small extension to keyword interpretation instead of creating a rule language, storage schema, or options UI.
@@ -34,7 +34,7 @@ Extend the packaged maintainer keyword configuration so entries ending in `*` ac
 ### Documentation (this feature)
 
 ```text
-specs/001-edge-monetization-remover/
+specs/002-prefix-class-tokens/
 ├── plan.md              # This file (/speckit-plan command output)
 ├── research.md          # Phase 0 output (/speckit-plan command)
 ├── data-model.md        # Phase 1 output (/speckit-plan command)
@@ -69,7 +69,7 @@ tests/
 - `data-model.md` defines `CleanupConfigEntry` semantics for plain substring entries and trailing-star class-token prefix entries.
 - `contracts/content-script-behavior.md` documents observable config and cleanup behavior.
 - `quickstart.md` includes maintainer examples such as `ads*` and `ads-*`.
-- `AGENTS.md` already points to `specs/001-edge-monetization-remover/plan.md`; no marker update was required.
+- `AGENTS.md` points to `specs/002-prefix-class-tokens/plan.md` for current feature planning context.
 
 ## Post-Design Constitution Check
 

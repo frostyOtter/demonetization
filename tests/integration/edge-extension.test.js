@@ -34,16 +34,17 @@ test("extension scripts have no remote-code or network behavior", () => {
 
 test("packaged config defines default monetization keyword", () => {
   assert.match(configScript, /EdgeMonetizationRemoverConfig/);
-  assert.match(configScript, /classKeywords:\s*\["monetization"\]/);
+  assert.match(configScript, /classKeywords:\s*\["monetization",\s*"paywall",\s*"subscription",\s*"ads\*",\s*"ads-\*"\]/);
 });
 
-test("fixtures cover initial overlay, no-match, scroll lock, and delayed insertion journeys", () => {
+test("fixtures cover initial overlay, no-match, scroll lock, delayed insertion, and prefix-token journeys", () => {
   const fixtures = {
     configured: fs.readFileSync(path.join(rootDir, "tests/fixtures/configured-keywords-page.html"), "utf8"),
     monetization: fs.readFileSync(path.join(rootDir, "tests/fixtures/monetization-page.html"), "utf8"),
     noMatch: fs.readFileSync(path.join(rootDir, "tests/fixtures/no-match-page.html"), "utf8"),
     scrollLocked: fs.readFileSync(path.join(rootDir, "tests/fixtures/scroll-locked-page.html"), "utf8"),
-    delayed: fs.readFileSync(path.join(rootDir, "tests/fixtures/delayed-monetization-page.html"), "utf8")
+    delayed: fs.readFileSync(path.join(rootDir, "tests/fixtures/delayed-monetization-page.html"), "utf8"),
+    prefixTokens: fs.readFileSync(path.join(rootDir, "tests/fixtures/prefix-class-tokens-page.html"), "utf8")
   };
 
   assert.match(fixtures.monetization, /fc-monetization-dialog-container/);
@@ -55,6 +56,12 @@ test("fixtures cover initial overlay, no-match, scroll lock, and delayed inserti
   assert.match(fixtures.delayed, /setTimeout/);
   assert.match(fixtures.delayed, /site-paywall-modal/);
   assert.match(fixtures.delayed, /document\.body\.style\.overflow = "hidden"/);
+  assert.match(fixtures.prefixTokens, /ads-banner/);
+  assert.match(fixtures.prefixTokens, /layout ads_modal/);
+  assert.match(fixtures.prefixTokens, /paidads/);
+  assert.match(fixtures.prefixTokens, /site-hardpaywall-modal/);
+  assert.match(fixtures.prefixTokens, /<span class="ads-banner"/);
+  assert.match(fixtures.prefixTokens, /setTimeout/);
 });
 
 test("content script uses targeted mutation observation instead of polling", () => {
@@ -68,4 +75,13 @@ test("content script resolves configured keywords without browser permissions", 
   assert.match(contentScript, /normalizeKeywords/);
   assert.doesNotMatch(contentScript, /\bchrome\.storage\b/);
   assert.doesNotMatch(contentScript, /\bchrome\.runtime\.getURL\b/);
+});
+
+test("manifest and scripts preserve cleanup boundaries for prefix-token support", () => {
+  assert.equal(manifest.background, undefined);
+  assert.equal(manifest.permissions, undefined);
+  assert.deepEqual(manifest.content_scripts[0].js, ["config.js", "content.js"]);
+  assert.match(contentScript, /querySelectorAll\("div\[class\]"\)/);
+  assert.match(contentScript, /restoreBodyOverflow/);
+  assert.doesNotMatch(contentScript, /\bsetTimeout\s*\(/);
 });

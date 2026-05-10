@@ -17,9 +17,11 @@ Edit `extension/config.js` before loading or reloading the unpacked extension:
 
 ```js
 globalScope.EdgeMonetizationRemoverConfig = {
-  classKeywords: ["monetization", "paywall", "subscription"]
+  classKeywords: ["monetization", "paywall", "subscription", "ads*", "ads-*"]
 };
 ```
+
+Plain entries such as `monetization`, `paywall`, and `subscription` match substrings anywhere in a `div` class string. Entries ending in `*` match individual class tokens by prefix: `ads*` matches `ads-banner` and `ads_modal`, while `ads-*` matches `ads-banner` but not `ads_modal`. An entry that is exactly `*` is ignored so it cannot become a broad match-all rule.
 
 Whitespace and duplicate entries are normalized at runtime. Empty, missing, or invalid keyword config falls back to `monetization`.
 
@@ -51,7 +53,7 @@ Load the extension manually in Microsoft Edge:
 2. Enable developer mode.
 3. Select **Load unpacked**.
 4. Choose the repository `extension/` directory.
-5. Open the fixture pages in `tests/fixtures/` and confirm default and configured-keyword overlays are removed, scrolling is restored, and non-matching content remains.
+5. Open the fixture pages in `tests/fixtures/` and confirm default, configured-keyword, and prefix-token overlays are removed, scrolling is restored, non-div matching elements remain, and non-matching content remains.
 
 ## Project Layout
 

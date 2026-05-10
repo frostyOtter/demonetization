@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Prefix Class Tokens Fixture</title>
+    <style>
+      body {
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="article">
+      <p>Prefix-token cleanup should preserve readable content.</p>
+      <div class="ads-banner">Prefix token dialog</div>
+      <div class="layout ads_modal">Underscore prefix token dialog</div>
+      <div class="paidads">Middle-token text should remain for ads*.</div>
+      <div class="site-hardpaywall-modal">Plain keyword dialog</div>
+      <span class="ads-banner">Non-div prefix token remains.</span>
+    </main>
+    <script>
+      setTimeout(function addDelayedPrefixDialog() {
+        var delayed = document.createElement("div");
+        delayed.className = "ads-late-modal";
+        delayed.textContent = "Delayed prefix token dialog";
+        document.body.appendChild(delayed);
+      }, 10);
+    </script>
+  </body>
+</html>
