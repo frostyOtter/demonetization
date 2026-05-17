@@ -8,6 +8,7 @@
     <main id="article">
       <p>Delayed insertion fixture.</p>
     </main>
+    <div id="delayed-class-placeholder" class="placeholder-dialog">Delayed class mutation placeholder</div>
     <script>
       setTimeout(function insertDelayedMonetizationDialog() {
         document.body.style.overflow = "hidden";
@@ -17,6 +18,11 @@
           '<div class="site-paywall-modal">Delayed configured keyword dialog</div>'
         ].join("");
         document.body.appendChild(wrapper);
+      }, 100);
+
+      setTimeout(function mutateDelayedMonetizationClass() {
+        document.body.style.overflow = "hidden";
+        document.getElementById("delayed-class-placeholder").className = "fc-monetization-dialog-container";
       }, 100);
     </script>
   </body>

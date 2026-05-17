@@ -179,16 +179,50 @@
     };
   }
 
+  function cleanupChangedClassTarget(node) {
+    var targetDocument = node && node.ownerDocument ? node.ownerDocument : globalScope.document;
+    var keywords = resolveClassKeywords();
+    var removedCount = 0;
+
+    if (isRemovableDiv(node, keywords)) {
+      if (node.parentNode && typeof node.parentNode.removeChild === "function") {
+        node.parentNode.removeChild(node);
+        removedCount = 1;
+      } else if (typeof node.remove === "function") {
+        node.remove();
+        removedCount = 1;
+      }
+    }
+
+    return {
+      removedCount: removedCount,
+      scrollRestored: restoreBodyOverflow(targetDocument),
+      keywordsUsed: keywords.slice(),
+      source: "mutation"
+    };
+  }
+
   function handleMutations(mutations) {
     var removedCount = 0;
     var scrollRestored = false;
 
     for (var mutationIndex = 0; mutationIndex < mutations.length; mutationIndex += 1) {
       var mutation = mutations[mutationIndex];
-      for (var nodeIndex = 0; nodeIndex < mutation.addedNodes.length; nodeIndex += 1) {
-        var result = cleanupAddedNode(mutation.addedNodes[nodeIndex]);
+      var result;
+
+      if (mutation.type === "attributes" && mutation.attributeName === "class") {
+        result = cleanupChangedClassTarget(mutation.target);
         removedCount += result.removedCount;
         scrollRestored = scrollRestored || result.scrollRestored;
+        continue;
+      }
+
+      if (mutation.addedNodes) {
+        for (var nodeIndex = 0; nodeIndex < mutation.addedNodes.length; nodeIndex += 1) {
+          result = cleanupAddedNode(mutation.addedNodes[nodeIndex]);
+          removedCount += result.removedCount;
+          scrollRestored = scrollRestored || result.scrollRestored;
+        }
       }
     }
 
@@ -209,6 +243,8 @@
 
     observer = new globalScope.MutationObserver(handleMutations);
     observer.observe(targetDocument.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
       childList: true,
       subtree: true
     });
@@ -244,6 +280,7 @@
   var api = {
     cleanup: cleanup,
     cleanupAddedNode: cleanupAddedNode,
+    cleanupChangedClassTarget: cleanupChangedClassTarget,
     disconnectObserver: disconnectObserver,
     findMonetizationDivs: findRemovableDivs,
     findRemovableDivs: findRemovableDivs,
