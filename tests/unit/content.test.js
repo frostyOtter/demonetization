@@ -114,23 +114,21 @@ const prefixTokenExamples = {
   ignoredWildcard: "*"
 };
 
+const packagedClassKeywords = [
+  "monetization",
+  "adsby*",
+  "googleads",
+  "adblock*",
+  "banner-preload*",
+  "banner-catfish*",
+  "ad_position_box"
+];
+
 test("loads default packaged config before content script when requested", () => {
   const { api, context } = createApi(createDocument(), { loadDefaultConfig: true });
 
-  assertArrayEqual(context.EdgeMonetizationRemoverConfig.classKeywords, [
-    "monetization",
-    "paywall",
-    "subscription",
-    "ads*",
-    "ads-*"
-  ]);
-  assertArrayEqual(api.resolveClassKeywords(), [
-    "monetization",
-    "paywall",
-    "subscription",
-    "ads*",
-    "ads-*"
-  ]);
+  assertArrayEqual(context.EdgeMonetizationRemoverConfig.classKeywords, packagedClassKeywords);
+  assertArrayEqual(api.resolveClassKeywords(), packagedClassKeywords);
 });
 
 test("removes a single matching monetization div with default config", () => {
@@ -314,6 +312,110 @@ test("removes delayed prefix-token matches through mutation handling", () => {
   assert.equal(added.parentNode, null);
 });
 
+test("removes existing divs when a class mutation creates a prefix-token match", () => {
+  const document = createDocument();
+  const placeholder = document.body.appendChild(new FakeElement("div", "placeholder"));
+  const { api } = createApi(document, {
+    EdgeMonetizationRemoverConfig: {
+      classKeywords: [prefixTokenExamples.prefix]
+    }
+  });
+
+  placeholder.className = prefixTokenExamples.matchingDashToken;
+  const result = api.handleMutations([
+    {
+      type: "attributes",
+      attributeName: "class",
+      target: placeholder
+    }
+  ]);
+
+  assert.equal(result.removedCount, 1);
+  assert.equal(placeholder.parentNode, null);
+});
+
+test("removes existing divs when a class mutation creates a plain keyword match", () => {
+  const document = createDocument();
+  const placeholder = document.body.appendChild(new FakeElement("div", "placeholder"));
+  const { api } = createApi(document, {
+    EdgeMonetizationRemoverConfig: {
+      classKeywords: ["paywall"]
+    }
+  });
+
+  placeholder.className = "site-paywall-modal";
+  const result = api.handleMutations([
+    {
+      type: "attributes",
+      attributeName: "class",
+      target: placeholder
+    }
+  ]);
+
+  assert.equal(result.removedCount, 1);
+  assert.equal(placeholder.parentNode, null);
+});
+
+test("preserves non-div elements when a class mutation creates a match", () => {
+  const document = createDocument();
+  const label = document.body.appendChild(new FakeElement("span", "placeholder"));
+  const { api } = createApi(document, {
+    EdgeMonetizationRemoverConfig: {
+      classKeywords: [prefixTokenExamples.prefix]
+    }
+  });
+
+  label.className = prefixTokenExamples.matchingDashToken;
+  const result = api.handleMutations([
+    {
+      type: "attributes",
+      attributeName: "class",
+      target: label
+    }
+  ]);
+
+  assert.equal(result.removedCount, 0);
+  assert.equal(label.parentNode, document.body);
+});
+
+test("restores body overflow when class mutation cleanup removes a div", () => {
+  const document = createDocument();
+  document.body.style.overflow = "hidden";
+  const placeholder = document.body.appendChild(new FakeElement("div", "placeholder"));
+  const { api } = createApi(document);
+
+  placeholder.className = "fc-monetization-dialog-container";
+  const result = api.handleMutations([
+    {
+      type: "attributes",
+      attributeName: "class",
+      target: placeholder
+    }
+  ]);
+
+  assert.equal(result.removedCount, 1);
+  assert.equal(result.scrollRestored, true);
+  assert.equal(placeholder.parentNode, null);
+  assert.equal(document.body.style.overflow, "auto");
+});
+
+test("ignores non-class attribute mutations", () => {
+  const document = createDocument();
+  const placeholder = document.body.appendChild(new FakeElement("div", "fc-monetization-dialog-container"));
+  const { api } = createApi(document);
+
+  const result = api.handleMutations([
+    {
+      type: "attributes",
+      attributeName: "style",
+      target: placeholder
+    }
+  ]);
+
+  assert.equal(result.removedCount, 0);
+  assert.equal(placeholder.parentNode, document.body);
+});
+
 test("restores body overflow while cleaning prefix-token matches", () => {
   const document = createDocument();
   document.body.style.overflow = "hidden";
@@ -385,14 +487,18 @@ test("removes delayed descendants and restores scroll lock", () => {
 test("sets up at most one mutation observer", () => {
   const document = createDocument();
   let observed = 0;
+  let observedTarget;
+  let observedOptions;
 
   class FakeMutationObserver {
     constructor(callback) {
       this.callback = callback;
     }
 
-    observe() {
+    observe(target, options) {
       observed += 1;
+      observedTarget = target;
+      observedOptions = options;
     }
 
     disconnect() {}
@@ -405,6 +511,11 @@ test("sets up at most one mutation observer", () => {
 
   assert.equal(first, second);
   assert.equal(observed, 1);
+  assert.equal(observedTarget, document.documentElement);
+  assert.equal(observedOptions.attributes, true);
+  assertArrayEqual(observedOptions.attributeFilter, ["class"]);
+  assert.equal(observedOptions.childList, true);
+  assert.equal(observedOptions.subtree, true);
 });
 
 test("removes delayed matching nodes through configured keyword mutation handling", () => {
@@ -446,8 +557,22 @@ test("completes cleanup work inside the 1 second budget", () => {
   const mutationResult = api.handleMutations([{ addedNodes: [wrapper] }]);
   const mutationDuration = performance.now() - mutationStartedAt;
 
+  const placeholder = document.body.appendChild(new FakeElement("div", "placeholder"));
+  const classMutationStartedAt = performance.now();
+  placeholder.className = "fc-monetization-dialog-container-late";
+  const classMutationResult = api.handleMutations([
+    {
+      type: "attributes",
+      attributeName: "class",
+      target: placeholder
+    }
+  ]);
+  const classMutationDuration = performance.now() - classMutationStartedAt;
+
   assert.equal(initialResult.removedCount, 250);
   assert.equal(mutationResult.removedCount, 1);
+  assert.equal(classMutationResult.removedCount, 1);
   assert.ok(initialDuration < 1000, `initial cleanup took ${initialDuration}ms`);
   assert.ok(mutationDuration < 1000, `mutation cleanup took ${mutationDuration}ms`);
+  assert.ok(classMutationDuration < 1000, `class mutation cleanup took ${classMutationDuration}ms`);
 });

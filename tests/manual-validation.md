@@ -8,6 +8,8 @@
 | 2026-05-09 | `npm run lint` | Pass | Syntax checks passed for config, extension, and test scripts. |
 | 2026-05-10 | `npm test` | Pass | 27 tests passed: prefix-token `ads*` and `ads-*`, mixed plain keywords, fallback, delayed cleanup, scroll restoration, and fixture contracts. |
 | 2026-05-10 | `npm run lint` | Pass | Syntax checks passed for config, extension, and test scripts after prefix-token implementation. |
+| 2026-05-17 | `npm test` | Pass | 32 tests passed: class-mutation cleanup, observer class-attribute filtering, delayed insertion, prefix-token matching, fixture contracts, and stale packaged-config assertions. |
+| 2026-05-17 | `npm run lint` | Pass | Syntax checks passed for config, extension, and test scripts after class-mutation implementation. |
 
 ## Microsoft Edge Validation
 
@@ -18,10 +20,11 @@
 | 2026-05-09 | Not run | `tests/fixtures/scroll-locked-page.html` | Body overflow changes from hidden to auto without other body style changes. | Not run in local browser. | Pending |
 | 2026-05-09 | Not run | `tests/fixtures/delayed-monetization-page.html` | Delayed monetization and configured-keyword divs removed within 1 second after insertion and scroll restored. | Not run in local browser. | Pending |
 | 2026-05-10 | Not run | `tests/fixtures/prefix-class-tokens-page.html` | `ads-banner`, `layout ads_modal`, `site-hardpaywall-modal`, and delayed `ads-late-modal` divs removed; `paidads` and matching non-div content remain; scroll restored. | Not run in local browser. | Pending |
+| 2026-05-17 | Not run | `tests/fixtures/delayed-monetization-page.html` | Existing `#delayed-class-placeholder` changes to a matching monetization class, is removed within 1 second of the class change, and body overflow is restored to auto. | Not run in local browser. | Pending |
 
 ## Performance Budget
 
 - Target: initial cleanup and delayed cleanup complete within 1 second.
-- Automated coverage verifies targeted MutationObserver behavior, no polling, prefix-token cleanup, and cleanup under the 1 second budget for 250 matching divs plus a delayed inserted matching div.
+- Automated coverage verifies targeted MutationObserver behavior, no polling, prefix-token cleanup, class-mutation cleanup, and cleanup under the 1 second budget for 250 matching divs plus delayed inserted and class-mutated matching divs.
 - Browser version available for future manual validation: Microsoft Edge 148.0.3967.54.
 - Browser timing measurement remains pending until manual Microsoft Edge validation is run.

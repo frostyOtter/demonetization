@@ -34,10 +34,13 @@ test("extension scripts have no remote-code or network behavior", () => {
 
 test("packaged config defines default monetization keyword", () => {
   assert.match(configScript, /EdgeMonetizationRemoverConfig/);
-  assert.match(configScript, /classKeywords:\s*\["monetization",\s*"paywall",\s*"subscription",\s*"ads\*",\s*"ads-\*"\]/);
+  assert.match(
+    configScript,
+    /classKeywords:\s*\["monetization",\s*"adsby\*",\s*"googleads",\s*"adblock\*",\s*"banner-preload\*",\s*"banner-catfish\*",\s*"ad_position_box"\]/
+  );
 });
 
-test("fixtures cover initial overlay, no-match, scroll lock, delayed insertion, and prefix-token journeys", () => {
+test("fixtures cover initial overlay, no-match, scroll lock, delayed insertion, class mutation, and prefix-token journeys", () => {
   const fixtures = {
     configured: fs.readFileSync(path.join(rootDir, "tests/fixtures/configured-keywords-page.html"), "utf8"),
     monetization: fs.readFileSync(path.join(rootDir, "tests/fixtures/monetization-page.html"), "utf8"),
@@ -55,6 +58,8 @@ test("fixtures cover initial overlay, no-match, scroll lock, delayed insertion, 
   assert.match(fixtures.scrollLocked, /overflow:\s*hidden/);
   assert.match(fixtures.delayed, /setTimeout/);
   assert.match(fixtures.delayed, /site-paywall-modal/);
+  assert.match(fixtures.delayed, /delayed-class-placeholder/);
+  assert.match(fixtures.delayed, /mutateDelayedMonetizationClass/);
   assert.match(fixtures.delayed, /document\.body\.style\.overflow = "hidden"/);
   assert.match(fixtures.prefixTokens, /ads-banner/);
   assert.match(fixtures.prefixTokens, /layout ads_modal/);
@@ -67,6 +72,9 @@ test("fixtures cover initial overlay, no-match, scroll lock, delayed insertion, 
 test("content script uses targeted mutation observation instead of polling", () => {
   assert.match(contentScript, /new globalScope\.MutationObserver\(handleMutations\)/);
   assert.match(contentScript, /addedNodes/);
+  assert.match(contentScript, /attributes:\s*true/);
+  assert.match(contentScript, /attributeFilter:\s*\["class"\]/);
+  assert.match(contentScript, /mutation\.target/);
   assert.doesNotMatch(contentScript, /\bsetInterval\s*\(/);
 });
 
